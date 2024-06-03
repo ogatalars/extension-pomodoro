@@ -1,8 +1,19 @@
 import React, { useState, useEffect } from 'react';
 
 const PomodoroTimer: React.FC = () => {
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
-  const [isRunning, setIsRunning] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number>(() => {
+    const savedTime = localStorage.getItem('timeLeft');
+    return savedTime ? parseInt(savedTime) : 25 * 60;
+  });
+  const [isRunning, setIsRunning] = useState<boolean>(() => {
+    const savedRunning = localStorage.getItem('isRunning');
+    return savedRunning ? JSON.parse(savedRunning) : false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('timeLeft', timeLeft.toString());
+    localStorage.setItem('isRunning', JSON.stringify(isRunning));
+  }, [timeLeft, isRunning]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
