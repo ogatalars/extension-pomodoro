@@ -16,16 +16,39 @@ const PomodoroTimer: React.FC = () => {
   }, [timeLeft, isRunning]);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isRunning && timeLeft > 0) {
-      timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-    } else if (timeLeft === 0) {
-      alert('Time is up!');
-      setIsRunning(false);
-      setTimeLeft(25 * 60);
-    }
-    return () => clearTimeout(timer);
-  }, [isRunning, timeLeft]);
+    const updateTime = () => {
+      chrome.runtime.sendMessage({ type: 'GET_TIME' }, (response) => {
+        if (response) {
+          setTimeLeft(response.timeLeft);
+          setIsRunning(response.isRunning);
+        }
+      });
+    };
+
+    updateTime();
+    const timerId = setInterval(updateTime, 1000);
+
+    return () => clearInterval(timerId);
+  }, []);
+
+  const handleStartPause = () => {
+    const messageType = isRunning ? 'PAUSE_TIMER' : 'START_TIMER';
+    chrome.runtime.sendMessage({ type: messageType }, (response) => {
+      if (response) {
+        setTimeLeft(response.timeLeft);
+        setIsRunning(response.isRunning);
+      }
+    });
+  };
+
+  const handleReset = () => {
+    chrome.runtime.sendMessage({ type: 'RESET_TIMER' }, (response) => {
+      if (response) {
+        setTimeLeft(response.timeLeft);
+        setIsRunning(response.isRunning);
+      }
+    });
+  };
 
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60);
@@ -37,10 +60,10 @@ const PomodoroTimer: React.FC = () => {
     <div>
       <h1>Pomodoro Timer</h1>
       <div>{formatTime(timeLeft)}</div>
-      <button onClick={() => setIsRunning(!isRunning)}>
+      <button onClick={handleStartPause}>
         {isRunning ? 'Pause' : 'Start'}
       </button>
-      <button onClick={() => setTimeLeft(25 * 60)}>Reset</button>
+      <button onClick={handleReset}>Reset</button>
     </div>
   );
 };
