@@ -3,7 +3,7 @@
   "name": "Pomodoro Timer",
   "version": "1.0",
   "description": "A simple Pomodoro timer extension for Chrome",
-  "permissions": [],
+  "permissions": ["notifications", "storage"],
   "action": {
     "default_popup": "index.html",
     "default_icon": {
