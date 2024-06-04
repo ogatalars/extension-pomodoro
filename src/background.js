@@ -1,10 +1,12 @@
-// <reference types="chrome" />
-
 let timeLeft = 25 * 60;
 let isRunning = false;
-let timer: NodeJS.Timeout | null = null;
+let timer = null;
 
 console.log('Background script running...');
+
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('Service worker registered');
+});
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Message received in background:', message);
@@ -60,5 +62,3 @@ function startTimer() {
     timeLeft = 25 * 60;
   }
 }
-
-export {}; // Esta linha transforma o arquivo em um módulo
