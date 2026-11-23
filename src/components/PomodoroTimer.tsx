@@ -1,57 +1,57 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import {
+  ALARM_NAME, STORAGE_KEY, TimerState, formatTime, initialState, isRunning, parseState, pause, remainingMs, start,
+} from '../timer';
+
+const save = (s: TimerState) => chrome.storage.local.set({ [STORAGE_KEY]: s });
 
 const PomodoroTimer: React.FC = () => {
-  const [timeLeft, setTimeLeft] = useState<number>(25 * 60);
-  const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [state, setState] = useState<TimerState>(initialState);
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    const updateStateFromStorage = () => {
-      chrome.storage.local.get(['timeLeft', 'isRunning'], (result) => {
-        if (result.timeLeft !== undefined) setTimeLeft(result.timeLeft);
-        if (result.isRunning !== undefined) setIsRunning(result.isRunning);
-      });
+    chrome.storage.local.get(STORAGE_KEY).then((r) => setState(parseState(r[STORAGE_KEY])));
+    const onChanged = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+      if (area === 'local' && STORAGE_KEY in changes) setState(parseState(changes[STORAGE_KEY].newValue));
     };
-
-    updateStateFromStorage();
-    const intervalId = setInterval(updateStateFromStorage, 1000);
-
-    return () => clearInterval(intervalId);
+    chrome.storage.onChanged.addListener(onChanged);
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => {
+      chrome.storage.onChanged.removeListener(onChanged);
+      clearInterval(id);
+    };
   }, []);
 
-  const handleStartPause = () => {
-    const messageType = isRunning ? 'PAUSE_TIMER' : 'START_TIMER';
-    chrome.runtime.sendMessage({ type: messageType }, (response) => {
-      if (response) {
-        setTimeLeft(response.timeLeft);
-        setIsRunning(response.isRunning);
-      }
-    });
+  const running = isRunning(state);
+
+  const handleStartPause = async () => {
+    const t = Date.now();
+    if (running) {
+      await chrome.alarms.clear(ALARM_NAME);
+      await save(pause(state, t));
+    } else {
+      const next = start(state, t);
+      await chrome.alarms.create(ALARM_NAME, { when: next.endAt! });
+      await save(next);
+    }
   };
 
-  const handleReset = () => {
-    chrome.runtime.sendMessage({ type: 'RESET_TIMER' }, (response) => {
-      if (response) {
-        setTimeLeft(response.timeLeft);
-        setIsRunning(response.isRunning);
-      }
-    });
-  };
-
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = time % 60;
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  const handleReset = async () => {
+    await chrome.alarms.clear(ALARM_NAME);
+    await save(initialState());
   };
 
   return (
-    <div>
+    <main>
       <h1>Pomodoro Timer</h1>
-      <div>{formatTime(timeLeft)}</div>
-      <button onClick={handleStartPause}>
-        {isRunning ? 'Pause' : 'Start'}
+      <div role="timer" aria-label="Time left" className="time">
+        {formatTime(remainingMs(state, now))}
+      </div>
+      <button onClick={handleStartPause} aria-pressed={running}>
+        {running ? 'Pause' : 'Start'}
       </button>
       <button onClick={handleReset}>Reset</button>
-    </div>
+    </main>
   );
 };
 
